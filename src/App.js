@@ -1,20 +1,22 @@
 import * as R from 'ramda';
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { GlobalWrapper, GlobalStyle, Rectangle, CollectionWrapper } from './ui';
+import { GlobalWrapper, GlobalStyle, Rectangle, CollectionWrapper, Button, Flex } from './ui';
+import { colorsMap } from "./theme"
 
-const markReplaced = (arr, i) => arr.map((item, index) => ({ ...item, color: (index === i) || (index === i + 1) ? 'blue' : 'black' }));
+const markReplaced = (arr, i) => arr.map((item, index) => ({ ...item, color: (index === i) || (index === i + 1) ? colorsMap.blue : colorsMap.green }));
 
-const markSorted = (arr, i) => arr.map((item, index) => index >= i ? { ...item, color: 'red' } : item);
+const markSorted = (arr, i) => arr.map((item, index) => index >= i ? { ...item, color: colorsMap.red } : item);
 
 const markAllSorted = (arr) => arr.map((incArr, index) => {
   if (index === R.length(arr) - 1) {
-    incArr[0].color = 'red'
-    incArr[1].color = 'red'
+    incArr[0].color = colorsMap.red
+    incArr[1].color = colorsMap.red
   }
   return incArr
 })
 
-const generateCollectionSortPath = (arr) => {
+const generateCollectionSortPath = (collection) => {
+  const arr = [...collection]
   const proccesArr = [];
   for (let i = 0; i < arr.length - 1; i++) {
     for (let j = 0; j < arr.length - 1 - i; j++) {
@@ -27,6 +29,7 @@ const generateCollectionSortPath = (arr) => {
       proccesArr.push(colorSorted);
     }
   }
+  proccesArr.unshift(markReplaced(collection))
   return proccesArr;
 };
 
@@ -37,7 +40,7 @@ const generateCollection = (collectionLength, maxNumber) => {
   for (let i = 0; i < collectionLength; i++) {
     collection.push({
       number: generateRandomNumber(maxNumber),
-      color: false,
+      color: colorsMap.green,
     })
   }
   return collection;
@@ -45,7 +48,10 @@ const generateCollection = (collectionLength, maxNumber) => {
 
 function CollectionView({ collection }) {
   return R.length(collection) && collection.map((item, i) => (
-    <Rectangle key={i} height={item.number} color={item.color} />
+    <Rectangle key={i} style={{
+      height: item.number,
+      backgroundColor: item.color
+    }} />
   ))
 }
 
@@ -56,9 +62,9 @@ const preparedCollection = (length, max) => {
   return marked
 }
 
-const length = 150;
+const length = 30;
 const maxHeight = 250;
-const initSpeed = 10
+const initSpeed = 30
 
 
 
@@ -67,28 +73,26 @@ function App() {
   const stopCounter = () => clearInterval(interval.current)
   const [index, setIndex] = useState(0)
   const [prepared, setPrepare] = useState(() => preparedCollection(length, maxHeight));
-  const [isSorting, setSorting] = useState(false);
   const [on, setOn] = useState('off');
+
 
 
   useEffect(() => {
     if (index >= R.length(prepared) - 1) {
       stopCounter()
-      setOn(false)
-      setSorting(false)
+      setOn('sorted')
     }
   }, [index, prepared])
 
   useEffect(() => {
     switch (on) {
       case 'play': {
-        setSorting(true)
         interval.current = setInterval(() => {
           setIndex(prevState => prevState + 1)
         }, initSpeed);
         break;
       }
-      case 'pause': {
+      default: {
         stopCounter();
         break;
       }
@@ -97,19 +101,53 @@ function App() {
 
 
 
-  const clickHandler = () => {
-    if (isSorting) return setOn((prev) => prev === 'play' ? setOn('pause') : setOn('play'))
+  const generateHandler = () => {
+    if (isDisabledAction('sorted', 'off')) {
+      setPrepare(preparedCollection(length, maxHeight))
+      setIndex(0)
+      setOn('off')
+    }
+  }
 
-    if (!index) return setOn('play')
+  const pauseHandler = () => {
+    if (isDisabledAction('play')) setOn('pause')
+  }
+
+  const sortHandler = () => {
+    if (isDisabledAction('pause', 'off')) setOn('play')
+  }
+
+  const resetHandler = () => {
+    if (isDisabledAction('off')) return
     setPrepare(preparedCollection(length, maxHeight))
     setIndex(0)
+    setOn('off')
+  }
+
+  const isDisabledAction = (...arg) => {
+    return arg.includes(on)
+  }
+
+  const defineColor = () => {
+    switch (on) {
+      case 'play': return 'red';
+      case 'sorted': return 'red';
+      case 'pause': return 'blue';
+      default: return 'green'
+    }
   }
 
   return (
     <React.Fragment>
       <GlobalStyle />
       <GlobalWrapper>
-        <CollectionWrapper onClick={clickHandler}>
+        <Button green disabled={isDisabledAction('play', 'pause')} onClick={generateHandler}>Generate new collection</Button>
+        <Flex>
+          <Button red disabled={isDisabledAction('play', 'sorted')} onClick={sortHandler}>Play</Button>
+          <Button disabled={isDisabledAction('off', 'pause', 'sorted')} onClick={pauseHandler}>Pause</Button>
+          <Button yellow disabled={isDisabledAction('off', 'sorted')} onClick={resetHandler}>Reset</Button>
+        </Flex>
+        <CollectionWrapper color={defineColor()}>
           <CollectionView collection={prepared[index]} />
         </CollectionWrapper>
       </GlobalWrapper>
